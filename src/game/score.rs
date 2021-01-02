@@ -17,6 +17,13 @@ pub struct Score {
     pub count_katu: i32,
 }
 
+// for score calculation
+pub struct PartialScore {
+	pub mode: Gamemode,
+	pub mods: i64,
+    pub max_combo: i32,
+}
+
 /// MOD DATA ///
 enum Mods {
 	NoMod = 0,
@@ -48,10 +55,7 @@ enum Mods {
 	ManiaCoOp = 1 << 25,
 	Mania1K = 1 << 26,
 	Mania3K = 1 << 27,
-    Mania2K = 1 << 28,
-    
-    /// FOR BETTER HANDLING ///
-    UnrankedKeys = Mods::Mania1K | Mods::Mania2K | Mods::Mania3K | Mods::Mania9K | Mods::ManiaCoOp
+    Mania2K = 1 << 28
 }
 
 pub enum Gamemode {
