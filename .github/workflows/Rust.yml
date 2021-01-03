@@ -1,0 +1,48 @@
+name: Rust Workflow
+'on':
+  - push
+  - pull_request
+
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    if: "!contains(github.event.head_commit.message, '(skip)')"
+    strategy:
+      matrix:
+        toolchain:
+          - nightly-x86_64-msvc
+          - nightly-i686-msvc
+          - nightly-x86_64-gnu
+          - nightly-i686-gnu
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: '${{ matrix.toolchain }}'
+          default: true
+          profile: minimal
+      - name: Build
+        run: |
+          cargo build
+          cargo build --release
+
+  linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '(skip)')"
+    strategy:
+      matrix:
+        toolchain:
+          - nightly
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: '${{ matrix.toolchain }}'
+          default: true
+          profile: minimal
+      - name: Build
+        run: |
+          cargo build
+          cargo build --release

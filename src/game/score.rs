@@ -2,7 +2,7 @@
 pub struct Score {
     // General Score Data
     pub score_id: i64,
-    pub mode: Gamemode,
+    //pub mode: Gamemode,
     pub user_id: i64,
     pub beatmap_id: i32,
     pub mods: i64,
@@ -19,7 +19,7 @@ pub struct Score {
 
 // for score calculation
 pub struct PartialScore {
-	pub mode: Gamemode,
+	//pub mode: Gamemode,
 	pub mods: i64,
     pub max_combo: i32,
 }
@@ -56,11 +56,4 @@ enum Mods {
 	Mania1K = 1 << 26,
 	Mania3K = 1 << 27,
     Mania2K = 1 << 28
-}
-
-pub enum Gamemode {
-    Standard,
-    Taiko,
-    Catch,
-    Mania,
 }
