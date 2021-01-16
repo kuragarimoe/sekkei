@@ -48,7 +48,7 @@ impl FromStr for Gamemode {
 
 /// MOD DATA ///
 
-enum Mods {
+pub enum Mods {
 	NoMod = 0,
 	NoFail = 1 << 0,
 	Easy = 1 << 1,
