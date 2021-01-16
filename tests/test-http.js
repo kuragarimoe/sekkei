@@ -8,6 +8,6 @@ app.all("/test", (req, res) => {
     res.json({
         message: "Hewwo"
     });
-})
+});
 
 app.listen(9898);

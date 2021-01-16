@@ -4,28 +4,25 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use serde_json::json;
 use tokio::runtime::Runtime;
 
-fn criterion_benchmark(c: &mut Criterion) {
+#[tokio::main]
+async fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("test http request", |b| {
-        b.iter(|| {
-            let rt = Runtime::new().unwrap();
+        b.iter(|| async {
+            let mut request = Request {
+                url: "http://localhost:9898/test".to_string(),
 
-            rt.block_on(async {
-                let mut request = Request {
-                    url: "http://localhost:9898/test".to_string(),
+                body: Some(json!({
+                    "test": "hi"
+                })),
 
-                    body: Some(json!({
-                        "test": "hi"
-                    })),
+                headers: Some(json!({
+                    "test": "hi"
+                })),
 
-                    headers: Some(json!({
-                        "test": "hi"
-                    })),
+                method: Method::Get,
+            };
 
-                    method: Method::Get,
-                };
-
-                request.make().await.unwrap();
-            });
+            request.make().await.unwrap();
         })
     });
 }

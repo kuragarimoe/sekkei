@@ -1,2 +1,2 @@
-mod beatmap;
-mod replays;
+pub mod beatmap;
+pub mod replays;
