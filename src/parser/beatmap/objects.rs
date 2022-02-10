@@ -161,6 +161,7 @@ pub struct TimingPoint {
     pub beat_length: f32,
     pub time_signature: i32,
     pub speed_multiplier: f32,
+    pub point_type: TimingPointType
 }
 
 impl Clone for TimingPoint {
@@ -169,8 +170,23 @@ impl Clone for TimingPoint {
             time: self.time,
             beat_length: self.beat_length,
             time_signature: self.time_signature,
-            speed_multiplier: self.speed_multiplier
+            speed_multiplier: self.speed_multiplier,
+            point_type: self.point_type
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum TimingPointType {
+    Uninherited,
+    Inherited
+}
+
+impl Copy for TimingPointType {}
+
+impl Clone for TimingPointType {
+    fn clone(&self) -> Self {
+        *self
     }
 }
 

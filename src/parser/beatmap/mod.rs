@@ -12,8 +12,9 @@ use crate::{
         HitType,
         UninheritedTimingPoint,
         InheritedTimingPoint,
-        SliderData,
         TimingPoint,
+        TimingPointType,
+        SliderData,
     },
     util::Vector2,
 };
@@ -281,6 +282,7 @@ impl BeatmapFile {
                                 } else {
                                     1.0
                                 },
+                                point_type: TimingPointType::Uninherited,
                             });
                         } else {
                             let inherited_point = InheritedTimingPoint {
@@ -312,6 +314,7 @@ impl BeatmapFile {
                                 } else {
                                     1.0
                                 },
+                                point_type: TimingPointType::Inherited,
                             });
                         }
                     }
