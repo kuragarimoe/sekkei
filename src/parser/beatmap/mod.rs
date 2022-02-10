@@ -6,6 +6,8 @@ use crate::{
     game::Gamemode,
 };
 
+use self::objects::SliderBody;
+
 // exports
 pub mod objects;
 
@@ -18,10 +20,10 @@ pub struct BeatmapFile {
     pub title_unicode: String,
     pub artist: String,
     pub artist_unicode: String,
+    pub gamemode: Gamemode,
 
     // difficulty information
     pub difficulty_name: String,
-    pub difficulty_mode: Gamemode,
 
     // objects
     pub hit_objects: Vec<HitObject>,
@@ -61,10 +63,10 @@ impl Default for BeatmapFile {
             title_unicode: "".to_string(),
             artist: "".to_string(),
             artist_unicode: "".to_string(),
+            gamemode: Gamemode::Standard,
 
             // difficulty metadata
             difficulty_name: "".to_string(),
-            difficulty_mode: Gamemode::Standard,
 
             // objects
             hit_objects: vec![],
@@ -137,7 +139,8 @@ impl BeatmapFile {
                             "AudioFilename" => beatmap.audio.filename = value.clone().to_string(),
                             "PreviewTime" => {
                                 beatmap.metadata.preview_time = value.clone().parse().unwrap()
-                            }
+                            },
+                            "Mode" => beatmap.gamemode = value.clone().parse().unwrap(),
                             _ => continue,
                         }
                     }
@@ -189,7 +192,8 @@ impl BeatmapFile {
                     let mut base = HitObject {
                         x: values[0].parse().unwrap_or(0.0),
                         y: values[1].parse().unwrap_or(0.0),
-                        time: values[2].parse().unwrap_or(0),
+                        start_time: values[2].parse().unwrap_or(0),
+                        end_time: 0,
                         hit_sound: values[4].parse().unwrap_or(0),
                         hit_type: values[3].parse().unwrap_or(1),
                         slider_data: None,
@@ -204,8 +208,8 @@ impl BeatmapFile {
                                     val.clone().split(":").map(|s| s.to_string()).collect();
 
                                 // set extra data
+                                base.end_time = t[0].parse().unwrap_or(0);
                                 base.extra_data = Some(HitObjectExtra {
-                                    end_time: t[0].parse().unwrap_or(0),
                                     hit_sample: HitSample {
                                         normal_set: t[1].parse().unwrap_or(0),
                                         additional_set: t[2].parse().unwrap_or(0),
@@ -215,13 +219,12 @@ impl BeatmapFile {
                                     },
                                 });
                             } else {
-                                // normal
+                                // normal hitcircle
                                 let t: Vec<String> =
                                     val.clone().split(":").map(|s| s.to_string()).collect();
 
                                 // set extra data
                                 base.extra_data = Some(HitObjectExtra {
-                                    end_time: 0,
                                     hit_sample: HitSample {
                                         normal_set: t[0].parse().unwrap_or(0),
                                         additional_set: t[1].parse().unwrap_or(0),
@@ -244,38 +247,117 @@ impl BeatmapFile {
                         let mut slider_base = SliderData {
                             curve_type: slider_split[0].parse().unwrap_or(CurveType::Catmull),
                             slider_points: vec![],
+                            slider_body: SliderBody {}
                         };
 
-                        for curve in slider_split {
-                            if curve.contains(":") {
+                        for point in slider_split {
+                            if point.contains(":") {
                                 // sliderpoint
-                                let curve_data: Vec<String> =
-                                    curve.split(":").map(|s| s.to_string()).collect();
+                                let point_data: Vec<String> =
+                                point.split(":").map(|s| s.to_string()).collect();
 
                                 slider_base.slider_points.push(FollowPoint {
-                                    x: curve_data[0].parse().unwrap_or(0),
-                                    y: curve_data[0].parse().unwrap_or(0),
+                                    x: point_data[0].parse().unwrap_or(0.0) - base.x,
+                                    y: point_data[1].parse().unwrap_or(0.0) - base.y,
                                 })
                             }
+                        }
+
+                        // check if point is linear
+                        if slider_base.slider_points.len() == 3 // length is at least 3
+                            && slider_base.curve_type as i32 == CurveType::PerfectCurve as i32// is a perfect curve
+                        {
+                            // precision check
+                            let point1 = &slider_base.slider_points[0];
+                            let point2 = &slider_base.slider_points[1];
+                            let point3 = &slider_base.slider_points[2];
+
+                            let isLinear = f32::abs(
+                                0.0 - ((point2.y - point1.y) * (point3.x - point1.x) - (point2.x - point1.x) * (point3.y - point1.y))
+                            ) <= 0.001;
+
+                            if isLinear == true {
+                                // this is linear
+                                slider_base.curve_type = CurveType::Linear; 
+                            }
+                        }
+
+                        let mut slider_length = 0.0;
+                        let mut repeat_count: i32 = values[6].parse().unwrap();
+                        repeat_count = i32::max(0, repeat_count - 1);
+
+                        if values.len() > 7 {
+                            // slider length
+                            slider_length = values[8].parse().unwrap_or(0.0);
+                        }
+
+                        // handle slider body
+                        let expected_distance = f64::max(0, slider_length);
+                        let mut slider_start = 0;
+                        let mut slider_end = 0;
+
+                        let mut i = 0;
+                        for slider_point in slider_base.slider_points {
+                            slider_end += 1;
+
+                            if i == slider_base.slider_points.len() - 1
+                                || (slider_base.slider_points[i].x == slider_base.slider_points[i + 1].x && slider_base.slider_points[i].y == slider_base.slider_points[i + 1].y)
+                            {
+                                // get a specific vector
+                                // TODO: implement Clone for FollowPoint, as this just outright fails to compile as a result
+                                let sub_path = slider_base.slider_points[slider_start..slider_end].to_vec();
+                                let approximated_path;
+
+                                // approximate subpath
+                                // TODO: this is a bit hacky.
+                                if slider_base.curve_type as i32 == CurveType::Linear as i32 {
+                                    approximated_path = sub_path;
+                                } else if slider_base.curve_type as i32 == CurveType::PerfectCurve as i32 {
+                                    if slider_base.slider_points.len() != 3 || sub_path.len() != 3 {
+                                        approximated_path = approximate_bezier(sub_path);
+                                    }
+                                    
+                                    // approximate perfect curve
+                                    approximated_path = vec![];
+                                    
+                                    let point1 = sub_path[0];
+                                    let point2 = sub_path[1];
+                                    let point3 = sub_path[2];
+
+                                    // TODO: replace followpoint with vector 2 and add a fuckton of methods to subtract them.
+                                    let point1Sq = f32::powf(f32::sqrt((((point2.x - point3.x) * (point2.x - point3.x) * ((point2.x - point3.x) * (point2.x - point3.x)) + ((point2.y - point3.y) * (point2.y - point3.y)) * ((point2.y - point3.y) * (point2.y - point3.y)))), 2.0);
+                                    let point2Sq = f32::powf(f32::sqrt((((point2.x - point3.x) * (point2.x - point3.x) * ((point2.x - point3.x) * (point2.x - point3.x)) + ((point2.y - point3.y) * (point2.y - point3.y)) * ((point2.y - point3.y) * (point2.y - point3.y)))), 2.0);
+                                    let point3Sq = f32::powf(f32::sqrt((((point2.x - point3.x) * (point2.x - point3.x) * ((point2.x - point3.x) * (point2.x - point3.x)) + ((point2.y - point3.y) * (point2.y - point3.y)) * ((point2.y - point3.y) * (point2.y - point3.y)))), 2.0);
+
+                                    // TODO: the rest of this!
+                                } else if slider_base.curve_type as i32 == CurveType::Catmull as i32 {
+                                    // TODO: approximate catmull
+                                } else {
+                                    approximated_path = sub_path;
+                                }
+
+                            }
+
+                            // increment index
+                            i += 1;
                         }
                     }
 
                     // spinner
                     if base.hit_type & (HitType::Spinner as i32) != 0 {
+                        base.end_time = values[5].parse().unwrap_or(0);
+
                         if let Some(mut s) = base.extra_data {
-                            s.end_time = values[5].parse().unwrap_or(0);
                             base.extra_data = Some(s);
                         } else {
                             if let Some(val) = values.get(values.len() - 1) {
                                 if val.contains(":") {
                                     // set extra data
                                     base.extra_data = Some(HitObjectExtra {
-                                        end_time: 0,
                                         hit_sample: BeatmapFile::parse_hitsample(val),
                                     });
                                 } else {
                                     base.extra_data = Some(HitObjectExtra {
-                                        end_time: 0,
                                         hit_sample: HitSample::default(),
                                     });
                                 }
@@ -286,6 +368,14 @@ impl BeatmapFile {
                     // push hitobject
                     beatmap.hit_objects.push(base);
                 }
+                
+
+                /*"TimingPoints" => {
+                    let values: Vec<String> = s.clone().split(",").map(|s| s.to_string()).collect();
+
+                    let time = 
+                },*/
+
                 _ => continue,
             }
         }
@@ -304,4 +394,17 @@ impl BeatmapFile {
             file_name: t[4].clone(),
         }
     }
+}
+
+pub fn approximate_bezier(sub_points: Vec<FollowPoint>) -> Vec<FollowPoint> {
+    let mut approximated_path = vec![];
+
+    if sub_points.len() == 0 {
+        // nothing, just return nothing
+        return approximated_path
+    }
+
+    
+
+    approximated_path
 }

@@ -3,7 +3,8 @@ use std::{convert::TryFrom, str::FromStr};
 pub struct HitObject {
     pub x: f32,
     pub y: f32,
-    pub time: i32,
+    pub start_time: i32,
+    pub end_time: i32,
     pub hit_sound: i32,
     pub hit_type: i32,
     pub slider_data: Option<SliderData>,
@@ -11,18 +12,7 @@ pub struct HitObject {
 }
 
 pub struct HitObjectExtra {
-    pub end_time: i32,
     pub hit_sample: HitSample
-}
-
-pub struct SliderData {
-    pub curve_type: CurveType,
-    pub slider_points: Vec<FollowPoint>
-}
-
-pub struct FollowPoint {
-    pub x: i32,
-    pub y: i32
 }
 
 pub struct HitSample {
@@ -91,13 +81,6 @@ pub enum HitType {
     Hold = 1 << 7
 }
 
-pub enum CurveType {
-    Catmull = 1,
-    Bezier = 2,
-    Linear = 3,
-    PerfectCurve = 4
-}
-
 impl HitType {
     fn from_i32(v: i32) -> Result<Self, ()> {
         match v {
@@ -132,6 +115,13 @@ impl FromStr for HitType {
     }
 }
 
+pub enum CurveType {
+    Catmull = 1,
+    Bezier = 2,
+    Linear = 3,
+    PerfectCurve = 4
+}
+
 impl FromStr for CurveType {
     type Err = ();
 
@@ -145,3 +135,24 @@ impl FromStr for CurveType {
         }
     }
 }
+
+pub struct TimingPoint {
+
+}
+
+pub struct DifficultyTimingPoint {
+
+}
+
+pub struct SliderData {
+    pub curve_type: CurveType,
+    pub slider_points: Vec<FollowPoint>,
+    pub slider_body: SliderBody,
+}
+
+pub struct FollowPoint {
+    pub x: f32,
+    pub y: f32
+}
+
+pub struct SliderBody {}
