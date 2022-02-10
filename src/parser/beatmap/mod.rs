@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use crate::{
     parser::beatmap::objects::{FollowPoint, HitObject, HitObjectExtra, HitSample, HitType, SliderData, CurveType},
@@ -92,6 +92,10 @@ impl Default for BeatmapFile {
 impl BeatmapFile {
     pub fn from_file(path: &str) -> BeatmapFile {
         BeatmapFile::from_str(&fs::read_to_string(&path).unwrap())
+    }
+
+    pub fn from_pathbuf(path: PathBuf) -> BeatmapFile {
+        BeatmapFile::from_str(&fs::read_to_string(path).unwrap())
     }
 
     pub fn from_str(map_string: &str) -> BeatmapFile {
