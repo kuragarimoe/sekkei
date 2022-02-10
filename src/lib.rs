@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-pub mod parser;
 pub mod game;
+pub mod parser;
 pub mod request;
 pub mod util;
 
