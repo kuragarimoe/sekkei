@@ -2,7 +2,7 @@ use regex::Regex;
 use std::fs;
 
 use crate::{
-    parser::beatmap::objects::{FollowPoint, HitObject, HitObjectExtra, HitSample, HitType, SliderData},
+    parser::beatmap::objects::{FollowPoint, HitObject, HitObjectExtra, HitSample, HitType, SliderData, CurveType},
     game::Gamemode,
 };
 
@@ -238,7 +238,7 @@ impl BeatmapFile {
 
                         // setup base
                         let mut slider_base = SliderData {
-                            curve_type: slider_split[0].parse().unwrap_or("".to_string()),
+                            curve_type: slider_split[0].parse().unwrap_or(CurveType::Catmull),
                             slider_points: vec![],
                         };
 

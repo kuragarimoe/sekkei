@@ -16,7 +16,7 @@ pub struct HitObjectExtra {
 }
 
 pub struct SliderData {
-    pub curve_type: String,
+    pub curve_type: CurveType,
     pub slider_points: Vec<FollowPoint>
 }
 
@@ -91,6 +91,13 @@ pub enum HitType {
     Hold = 1 << 7
 }
 
+pub enum CurveType {
+    Catmull = 1,
+    Bezier = 2,
+    Linear = 3,
+    PerfectCurve = 4
+}
+
 impl HitType {
     fn from_i32(v: i32) -> Result<Self, ()> {
         match v {
@@ -121,6 +128,20 @@ impl FromStr for HitType {
             "ComboSkip3"  => Ok(HitType::ComboSkip3),
             "Hold"  => Ok(HitType::Hold),
             _      => Err(()),
+        }
+    }
+}
+
+impl FromStr for CurveType {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input {
+            "C" => Ok(CurveType::Catmull),
+            "B" => Ok(CurveType::Bezier),
+            "L" => Ok(CurveType::Linear),
+            "P" => Ok(CurveType::PerfectCurve),
+            _ => Err(()),
         }
     }
 }
