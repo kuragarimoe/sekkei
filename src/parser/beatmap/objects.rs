@@ -17,9 +17,32 @@ pub struct HitObject {
     pub extra_data: Option<HitObjectExtra>,
 }
 
+impl Clone for HitObject {
+    fn clone(&self) -> Self {
+        HitObject {
+            x: self.x,
+            y: self.y,
+            start_time: self.start_time,
+            end_time: self.end_time,
+            hit_sound: self.hit_sound,
+            hit_type: self.hit_type,
+            slider_data: self.slider_data.clone(),
+            extra_data: self.extra_data.clone(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct HitObjectExtra {
     pub hit_sample: HitSample,
+}
+
+impl Clone for HitObjectExtra {
+    fn clone(&self) -> Self {
+        HitObjectExtra {
+            hit_sample: self.hit_sample.clone(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -39,6 +62,18 @@ impl Default for HitSample {
             index: 0,
             volume: 0,
             file_name: "".to_string(),
+        }
+    }
+}
+
+impl Clone for HitSample {
+    fn clone(&self) -> Self {
+        HitSample {
+            normal_set: self.normal_set,
+            additional_set: self.additional_set,
+            index: self.index,
+            volume: self.volume,
+            file_name: self.file_name.clone(),
         }
     }
 }
@@ -230,6 +265,17 @@ pub struct SliderData {
     pub base_points: Vec<Vector2>,
     pub slider_points: Vec<Vector2>,
     pub slider_body: SliderBody,
+}
+
+impl Clone for SliderData {
+    fn clone(&self) -> Self {
+        SliderData {
+            curve_type: self.curve_type,
+            base_points: self.base_points.clone(),
+            slider_points: self.slider_points.clone(),
+            slider_body: self.slider_body.clone(),
+        }
+    }
 }
 
 #[derive(Debug)]
