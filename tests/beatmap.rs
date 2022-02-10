@@ -17,5 +17,6 @@ mod tests {
         println!("{}", bm.metadata.preview_time);
         println!("{}", bm.title);
         println!("{}", bm.artist);
+        println!("{}", bm.difficulty.circle_size);
     }
 }

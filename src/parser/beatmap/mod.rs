@@ -28,7 +28,7 @@ pub struct BeatmapFile {
 
     // general metadata
     pub audio: AudioMetadata,
-    pub difficlty: DifficultyMetadata,
+    pub difficulty: DifficultyMetadata,
     pub metadata: Metadata,
 }
 
@@ -42,12 +42,12 @@ pub struct AudioMetadata {
 }
 
 pub struct DifficultyMetadata {
-    pub hp_drain: i32,
-    pub circle_size: i32,
-    pub overall_difficulty: i32,
-    pub approach_rate: i32,
-    pub slider_multiplier: i32,
-    pub slider_tickrate: i32,
+    pub hp_drain: f32,
+    pub circle_size: f32,
+    pub overall_difficulty: f32,
+    pub approach_rate: f32,
+    pub slider_multiplier: f32,
+    pub slider_tickrate: f32,
 }
 
 impl Default for BeatmapFile {
@@ -73,13 +73,13 @@ impl Default for BeatmapFile {
             audio: AudioMetadata {
                 filename: "".to_string(),
             },
-            difficlty: DifficultyMetadata {
-                hp_drain: 0,
-                circle_size: 0,
-                overall_difficulty: 0,
-                approach_rate: 0,
-                slider_multiplier: 0,
-                slider_tickrate: 0,
+            difficulty: DifficultyMetadata {
+                hp_drain: 0f32,
+                circle_size: 0f32,
+                overall_difficulty: 0f32,
+                approach_rate: 0f32,
+                slider_multiplier: 0f32,
+                slider_tickrate: 0f32,
             },
             metadata: Metadata {
                 tags: vec![],
@@ -139,7 +139,21 @@ impl BeatmapFile {
                     }
                 }
 
-                "Difficulty" => {}
+                "Difficulty" => {
+                    // difficulty section
+                    for cap in kvp_regex.captures_iter(&s) {
+                        // read value
+                        let value = &cap[2];
+                        match &cap[1] {
+                            "HPDrainRate" => beatmap.difficulty.hp_drain = value.clone().parse().unwrap(),
+                            "CircleSize" => beatmap.difficulty.circle_size = value.clone().parse().unwrap(),
+                            "OverallDifficulty" => beatmap.difficulty.overall_difficulty = value.clone().parse().unwrap(),
+                            "ApproachRate" => beatmap.difficulty.approach_rate = value.clone().parse().unwrap(),
+                            "SliderMultiplier" => beatmap.difficulty.slider_multiplier = value.clone().parse().unwrap(),
+                            "SliderTickRate" => beatmap.difficulty.slider_tickrate = value.clone().parse().unwrap(),
+                            _ => continue,
+                        }
+                    }}
 
                 "Metadata" => {
                     for cap in kvp_regex.captures_iter(&s) {
