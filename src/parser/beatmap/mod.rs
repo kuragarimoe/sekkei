@@ -138,7 +138,9 @@ impl BeatmapFile {
                         }
                     }
                 }
+
                 "Difficulty" => {}
+
                 "Metadata" => {
                     for cap in kvp_regex.captures_iter(&s) {
                         // read value
@@ -162,6 +164,7 @@ impl BeatmapFile {
                         }
                     }
                 }
+                
                 "HitObjects" => {
                     // oh no
                     let values: Vec<String> = s.clone().split(",").map(|s| s.to_string()).collect();
