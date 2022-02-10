@@ -11,7 +11,7 @@ async fn criterion_benchmark(c: &mut Criterion) {
 
     b.warm_up_time(Duration::new(10, 0));
     b.throughput(Throughput::Bytes(fs::metadata(path).unwrap().len() as u64));
-    
+
     // run benches
     b.bench_function("test unpack", |b| {
         b.iter(|| {

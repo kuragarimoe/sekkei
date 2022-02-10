@@ -1,0 +1,2 @@
+pub const PRECISION_LENIENCE: f32 = 0.001;
+pub const BEZIER_TOLERANCE: f32 = 0.25;

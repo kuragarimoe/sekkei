@@ -19,7 +19,7 @@ pub struct Score {
 
 // for score calculation
 pub struct PartialScore {
-	//pub mode: Gamemode,
-	pub mods: i64,
+    //pub mode: Gamemode,
+    pub mods: i64,
     pub max_combo: i32,
 }
