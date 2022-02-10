@@ -1,8 +1,8 @@
 use std::{convert::TryFrom, str::FromStr};
 
 pub struct HitObject {
-    pub x: i32,
-    pub y: i32,
+    pub x: f32,
+    pub y: f32,
     pub time: i32,
     pub hit_sound: i32,
     pub hit_type: i32,

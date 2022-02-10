@@ -74,12 +74,12 @@ impl Default for BeatmapFile {
                 filename: "".to_string(),
             },
             difficulty: DifficultyMetadata {
-                hp_drain: 0f32,
-                circle_size: 0f32,
-                overall_difficulty: 0f32,
-                approach_rate: 0f32,
-                slider_multiplier: 0f32,
-                slider_tickrate: 0f32,
+                hp_drain: 0.0,
+                circle_size: 0.0,
+                overall_difficulty: 0.0,
+                approach_rate: 0.0,
+                slider_multiplier: 0.0,
+                slider_tickrate: 0.0,
             },
             metadata: Metadata {
                 tags: vec![],
@@ -187,8 +187,8 @@ impl BeatmapFile {
                     // oh no
                     let values: Vec<String> = s.clone().split(",").map(|s| s.to_string()).collect();
                     let mut base = HitObject {
-                        x: values[0].parse().unwrap_or(0),
-                        y: values[1].parse().unwrap_or(0),
+                        x: values[0].parse().unwrap_or(0.0),
+                        y: values[1].parse().unwrap_or(0.0),
                         time: values[2].parse().unwrap_or(0),
                         hit_sound: values[4].parse().unwrap_or(0),
                         hit_type: values[3].parse().unwrap_or(1),
