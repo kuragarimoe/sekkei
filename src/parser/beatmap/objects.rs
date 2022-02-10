@@ -156,10 +156,57 @@ impl Clone for CurveType {
 }
 
 #[derive(Debug)]
-pub struct TimingPoint {}
+pub struct TimingPoint {
+    pub time: f32,
+    pub beat_length: f32,
+    pub time_signature: i32,
+    pub speed_multiplier: f32,
+}
+
+impl Clone for TimingPoint {
+    fn clone(&self) -> Self {
+        TimingPoint {
+            time: self.time,
+            beat_length: self.beat_length,
+            time_signature: self.time_signature,
+            speed_multiplier: self.speed_multiplier
+        }
+    }
+}
 
 #[derive(Debug)]
-pub struct DifficultyTimingPoint {}
+pub struct UninheritedTimingPoint {
+    pub time: f32,
+    pub beat_length: f32,
+    pub time_signature: i32
+}
+
+impl Clone for UninheritedTimingPoint {
+    fn clone(&self) -> Self {
+        UninheritedTimingPoint {
+            time: self.time,
+            beat_length: self.beat_length,
+            time_signature: self.time_signature
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct InheritedTimingPoint {
+    pub time: f32,
+    pub speed_multiplier: f32,
+    pub inherited_from: UninheritedTimingPoint
+}
+
+impl Clone for InheritedTimingPoint {
+    fn clone(&self) -> Self {
+        InheritedTimingPoint {
+            time: self.time,
+            speed_multiplier: self.speed_multiplier,
+            inherited_from: self.inherited_from.clone(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct SliderData {

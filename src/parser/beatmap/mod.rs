@@ -2,12 +2,20 @@ use regex::Regex;
 use std::{fs, path::PathBuf};
 
 use crate::{
-    util::Vector2,
-    game::Gamemode,
     constants,
+    game::Gamemode,
     parser::beatmap::objects::{
-        CurveType, HitObject, HitObjectExtra, HitSample, HitType, SliderData,
+        CurveType,
+        HitObject,
+        HitObjectExtra,
+        HitSample,
+        HitType,
+        UninheritedTimingPoint,
+        InheritedTimingPoint,
+        SliderData,
+        TimingPoint,
     },
+    util::Vector2,
 };
 
 use self::objects::SliderBody;
@@ -26,6 +34,11 @@ pub struct BeatmapFile {
     pub artist: String,
     pub artist_unicode: String,
     pub gamemode: Gamemode,
+
+    // timings
+    pub timing_points: Vec<UninheritedTimingPoint>,
+    pub inherited_points: Vec<InheritedTimingPoint>,
+    pub all_points: Vec<TimingPoint>,
 
     // difficulty information
     pub difficulty_name: String,
@@ -79,6 +92,11 @@ impl Default for BeatmapFile {
             // objects
             hit_objects: vec![],
 
+            // timings
+            timing_points: vec![],
+            inherited_points: vec![],
+            all_points: vec![],
+
             // general metadata
             audio: AudioMetadata {
                 filename: "".to_string(),
@@ -119,6 +137,11 @@ impl BeatmapFile {
 
         // empty bm
         let mut beatmap = BeatmapFile::default();
+        let mut timing_point = UninheritedTimingPoint {
+            time: 0.0,
+            beat_length: 0.0,
+            time_signature: 4,
+        };
 
         // iterate through
         for s in lines {
@@ -209,6 +232,91 @@ impl BeatmapFile {
                     }
                 }
 
+                "TimingPoints" => {
+                    let values: Vec<String> = s.clone().split(",").map(|s| s.to_string()).collect();
+
+                    if (values.len() as i32) < 2 {
+                        continue;
+                    }
+
+                    if let Some(val) = values.get(values.len() - 1) {
+                        let mut time: f32 = values[0].parse().unwrap_or(0.0);
+
+                        if beatmap.format_version < 5 {
+                            time = time + 24.0;
+                        }
+
+                        let beat_length: f32 = values[1].parse().unwrap_or(0.0);
+                        let mut time_signature = 4;
+
+                        let mut timing_change = false;
+                        let change = values[2].parse::<i32>().unwrap_or(0);
+                        if values.len() >= 3 {
+                            if change == 0 {
+                                time_signature = 4;
+                            } else {
+                                time_signature = values[2].parse().unwrap_or(0);
+                            }
+                        }
+
+                        if values.len() >= 7 {
+                            let timing_change_num = values[6].parse().unwrap_or(0);
+                            timing_change = timing_change_num == 1;
+                        }
+
+                        if timing_change == true {
+                            timing_point = UninheritedTimingPoint {
+                                time: time,
+                                beat_length: beat_length,
+                                time_signature: time_signature,
+                            };
+
+                            beatmap.timing_points.push(timing_point.clone());
+                            beatmap.all_points.push(TimingPoint {
+                                time: time,
+                                beat_length: beat_length,
+                                time_signature: time_signature,
+                                speed_multiplier: if beat_length < 0.0 {
+                                    100.0 / (-beat_length)
+                                } else {
+                                    1.0
+                                },
+                            });
+                        } else {
+                            let inherited_point = InheritedTimingPoint {
+                                time: time,
+                                speed_multiplier: if beat_length < 0.0 {
+                                    100.0 / (-beat_length)
+                                } else {
+                                    1.0
+                                },
+                                inherited_from: timing_point.clone()
+                            };
+;
+                            beatmap.inherited_points.push(InheritedTimingPoint {
+                                time: time,
+                                speed_multiplier: if beat_length < 0.0 {
+                                    100.0 / (-beat_length)
+                                } else {
+                                    1.0
+                                },
+                                inherited_from: timing_point.clone()
+                            });
+
+                            beatmap.all_points.push(TimingPoint {
+                                time: time,
+                                beat_length: beat_length,
+                                time_signature: time_signature,
+                                speed_multiplier: if beat_length < 0.0 {
+                                    100.0 / (-beat_length)
+                                } else {
+                                    1.0
+                                },
+                            });
+                        }
+                    }
+                }
+
                 "HitObjects" => {
                     // oh no
                     let values: Vec<String> = s.clone().split(",").map(|s| s.to_string()).collect();
@@ -270,10 +378,10 @@ impl BeatmapFile {
                         let mut slider_base = SliderData {
                             curve_type: slider_split[0].parse().unwrap_or(CurveType::Catmull),
                             base_points: vec![],
-                            slider_points: vec![ Vector2::new(0.0, 0.0) ],
+                            slider_points: vec![Vector2::new(0.0, 0.0)],
                             slider_body: SliderBody {
                                 body: vec![],
-                                length: vec![ 0.0 ],
+                                length: vec![0.0],
                             },
                         };
 
@@ -283,8 +391,16 @@ impl BeatmapFile {
                                 let point_data: Vec<String> =
                                     point.split(":").map(|s| s.to_string()).collect();
 
-                                slider_base.base_points.push(Vector2::new(point_data[0].parse().unwrap_or(0.0) ,point_data[1].parse().unwrap_or(0.0)));
-                                slider_base.slider_points.push(Vector2::new(point_data[0].parse().unwrap_or(0.0),point_data[1].parse().unwrap_or(0.0)) - Vector2::new(base.x, base.y));
+                                slider_base.base_points.push(Vector2::new(
+                                    point_data[0].parse().unwrap_or(0.0),
+                                    point_data[1].parse().unwrap_or(0.0),
+                                ));
+                                slider_base.slider_points.push(
+                                    Vector2::new(
+                                        point_data[0].parse().unwrap_or(0.0),
+                                        point_data[1].parse().unwrap_or(0.0),
+                                    ) - Vector2::new(base.x, base.y),
+                                );
                             }
                         }
 
@@ -343,7 +459,9 @@ impl BeatmapFile {
                                 // TODO: impl partialeq for curvetype
                                 if slider_base.curve_type as i32 == CurveType::Linear as i32 {
                                     approximated_path = sub_path.clone();
-                                } else if slider_base.curve_type as i32 == CurveType::PerfectCurve as i32 {
+                                } else if slider_base.curve_type as i32
+                                    == CurveType::PerfectCurve as i32
+                                {
                                     if slider_base.slider_points.len() != 3 || sub_path.len() != 3 {
                                         approximated_path =
                                             BeatmapFile::approximate_bezier(&sub_path);
@@ -356,7 +474,8 @@ impl BeatmapFile {
                                                 BeatmapFile::approximate_bezier(&sub_path);
                                         }
                                     }
-                                } else if slider_base.curve_type as i32 == CurveType::Catmull as i32 {
+                                } else if slider_base.curve_type as i32 == CurveType::Catmull as i32
+                                {
                                     approximated_path = BeatmapFile::approximate_catmull(&sub_path)
                                 } else {
                                     approximated_path = BeatmapFile::approximate_bezier(&sub_path);
@@ -366,9 +485,13 @@ impl BeatmapFile {
                                 for point in &approximated_path {
                                     // if (this.calculatedPath.length === 0 || this.calculatedPath[this.calculatedPath.length - 1].x !== t.x || this.calculatedPath[this.calculatedPath.length - 1].y !== t.y) {
                                     if &slider_base.slider_body.body.len() == &0
-                                        || &slider_base.slider_body.body[slider_base.slider_body.body.len() - 1].x
+                                        || &slider_base.slider_body.body
+                                            [slider_base.slider_body.body.len() - 1]
+                                            .x
                                             != &point.x
-                                        || &slider_base.slider_body.body[slider_base.slider_body.body.len() - 1].y
+                                        || &slider_base.slider_body.body
+                                            [slider_base.slider_body.body.len() - 1]
+                                            .y
                                             != &point.y
                                     {
                                         &slider_base.slider_body.body.push(*point);
@@ -391,7 +514,11 @@ impl BeatmapFile {
                                 // :desolate:
                                 slider_base.slider_body.body[i + 1] =
                                     point + point.scale((expected_distance - length) / diff);
-                                slider_base.slider_body.body.remove(i + 2);
+
+                                // calculate drain
+                                let index = i + 2;
+                                let drain_amount = index..(slider_base.slider_body.body.len() - (slider_base.slider_body.body.len() - 2 - i));
+                                slider_base.slider_body.body.drain(drain_amount);
 
                                 length = expected_distance;
                                 slider_base.slider_body.length.push(length);
@@ -458,12 +585,6 @@ impl BeatmapFile {
                     // push hitobject
                     beatmap.hit_objects.push(base);
                 }
-
-                /*"TimingPoints" => {
-                    let values: Vec<String> = s.clone().split(",").map(|s| s.to_string()).collect();
-
-                    let time =
-                },*/
                 _ => continue,
             }
         }
@@ -520,7 +641,9 @@ impl BeatmapFile {
                 let subtract = parent[i - 1] - scale;
                 let sum = subtract + parent[i + 1];
 
-                if sum.len().powf(2.0) > constants::BEZIER_TOLERANCE * constants::BEZIER_TOLERANCE * 4.0 {
+                if sum.len().powf(2.0)
+                    > constants::BEZIER_TOLERANCE * constants::BEZIER_TOLERANCE * 4.0
+                {
                     flat_enough = false;
                     break;
                 }
@@ -535,8 +658,7 @@ impl BeatmapFile {
 
                 for i in 0..sub_points.len() {
                     subdiv_buffer2[i] = approxmid_points[0];
-                    approxmid_points[parent.len() - i - 1] =
-                        approxmid_points[parent.len() - i - 1];
+                    approxmid_points[parent.len() - i - 1] = approxmid_points[parent.len() - i - 1];
 
                     for j in 0..((sub_points.len() - i) - 1) {
                         approxmid_points[j] =
@@ -553,7 +675,10 @@ impl BeatmapFile {
 
                 for i in 1..(sub_points.len() - 1) {
                     let index = 2 * i;
-                    let vector = (subdiv_buffer2[index - 1] + (Vector2::new(2.0, 2.0).mul(subdiv_buffer2[index]) + subdiv_buffer2[index + 1])).scale(0.25);
+                    let vector = (subdiv_buffer2[index - 1]
+                        + (Vector2::new(2.0, 2.0).mul(subdiv_buffer2[index])
+                            + subdiv_buffer2[index + 1]))
+                        .scale(0.25);
                     approximated_path.push(vector);
                 }
 
@@ -664,7 +789,10 @@ impl BeatmapFile {
         let points = if 2.0 * rad <= 0.1 {
             2
         } else {
-            f32::max(2.0, (theta_range / (2.0 * f32::acos(1.0 - 0.1 / rad))).ceil()) as usize
+            f32::max(
+                2.0,
+                (theta_range / (2.0 * f32::acos(1.0 - 0.1 / rad))).ceil(),
+            ) as usize
         };
 
         for i in 0..points {
