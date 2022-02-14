@@ -15,6 +15,7 @@ pub struct HitObject {
     pub end_time: f32,
     pub hit_sound: i32,
     pub hit_type: i32,
+    pub stack_height: i32,
     pub slider_data: Option<SliderData>,
     pub slider_objects: Option<Vec<SliderObject>>,
     pub extra_data: Option<HitObjectExtra>
@@ -31,6 +32,7 @@ impl Clone for HitObject {
             end_time: self.end_time,
             hit_sound: self.hit_sound,
             hit_type: self.hit_type,
+            stack_height: self.stack_height,
             slider_data: self.slider_data.clone(),
             slider_objects: self.slider_objects.clone(),
             extra_data: self.extra_data.clone(),
@@ -312,6 +314,7 @@ pub struct SliderObject {
     pub position: Vector2,
     pub start_time: f32,
     pub span_index: i32,
+    pub repeat_index: i32,
     pub span_start_time: f32,
     pub slider_object_type: SliderObjectType
 }
@@ -328,7 +331,8 @@ impl Clone for SliderObject {
 pub enum SliderObjectType {
     SliderHead,
     SliderTick,
-    SliderEnd
+    SliderRepeat,
+    SliderEnd,
 }
 
 impl Copy for SliderObjectType {}

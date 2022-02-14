@@ -35,6 +35,7 @@ pub struct BeatmapFile {
 
     // difficulty information
     pub difficulty_name: String,
+    pub stack_leniency: f32,
 
     // objects
     pub hit_objects: Vec<HitObject>,
@@ -54,6 +55,7 @@ pub struct Metadata {
 #[derive(Debug)]
 pub struct AudioMetadata {
     pub filename: String,
+    pub lead_in: i32
 }
 
 #[derive(Debug)]
@@ -81,6 +83,7 @@ impl Default for BeatmapFile {
 
             // difficulty metadata
             difficulty_name: "".to_string(),
+            stack_leniency: 0.0,
 
             // objects
             hit_objects: vec![],
@@ -93,6 +96,7 @@ impl Default for BeatmapFile {
             // general metadata
             audio: AudioMetadata {
                 filename: "".to_string(),
+                lead_in: 0
             },
             difficulty: DifficultyMetadata {
                 hp_drain: 0.0,
@@ -161,10 +165,12 @@ impl BeatmapFile {
                         let value = &cap[2];
                         match &cap[1] {
                             "AudioFilename" => beatmap.audio.filename = value.clone().to_string(),
+                            "AudioLeadIn" => beatmap.audio.lead_in = value.clone().parse().unwrap_or(0),
                             "PreviewTime" => {
                                 beatmap.metadata.preview_time = value.clone().parse().unwrap()
                             }
                             "Mode" => beatmap.gamemode = value.clone().parse().unwrap(),
+                            "StackLeniency" => beatmap.stack_leniency = value.clone().parse().unwrap(),
                             _ => continue,
                         }
                     }
@@ -316,6 +322,7 @@ impl BeatmapFile {
                         end_time: 0.0,
                         hit_sound: values[4].parse().unwrap_or(0),
                         hit_type: values[3].parse().unwrap_or(1),
+                        stack_height: 0,
                         slider_data: None,
                         slider_objects: None,
                         extra_data: None,
@@ -552,20 +559,25 @@ impl BeatmapFile {
 
                         // handle slider data //
                         let distance = f32::min(f32::max(1.0, 0.0), 1.0) * expected_distance;
-                        let mut distance_index =
-                            cloned_len.iter().position(|&f| f == distance).unwrap_or(usize::MAX); // unsafe as fuck, but i cant use -1.
+                        let mut distance_index = cloned_len
+                            .iter()
+                            .position(|&f| f == distance)
+                            .unwrap_or(usize::MAX); // unsafe as fuck, but i cant use -1.
 
                         // calculate ending position
-                        let end_position = 0;
+                        let mut returned = false;
                         if distance_index == usize::MAX {
                             for i in 0..cloned_len.len() {
                                 if cloned_len[i] > distance {
                                     distance_index = i;
+                                    returned = true;
                                     break;
                                 }
                             }
 
-                            distance_index = cloned_len.len() - 1;
+                            if returned == false {
+                                distance_index = cloned_len.len() - 1;
+                            }
                         }
 
                         // interpolate slider vertices
@@ -587,7 +599,8 @@ impl BeatmapFile {
                             {
                                 vertice = start
                             } else {
-                                let scale = (distance - distance_start) / (distance_end - distance_start);
+                                let scale =
+                                    (distance - distance_start) / (distance_end - distance_start);
                                 vertice = start + ((end - start).scale(scale));
                             }
                         }
@@ -605,7 +618,7 @@ impl BeatmapFile {
                         let tick_distance =
                             scoring_distance / beatmap.difficulty.slider_tickrate * 1.0;
                         let end_time =
-                            base.start_time + span_count as f32 * expected_distance / velocity;
+                            base.start_time + (span_count as f32 * expected_distance / velocity);
                         let duration = end_time - base.start_time;
 
                         base.end_time = end_time;
@@ -620,18 +633,9 @@ impl BeatmapFile {
                             position: base.position,
                             start_time: base.start_time,
                             span_index: 0,
+                            repeat_index: 0,
                             span_start_time: 0.0,
                             slider_object_type: SliderObjectType::SliderHead,
-                        });
-
-                        hitobjects.push(SliderObject {
-                            x: base.end_position.x,
-                            y: base.end_position.y,
-                            position: base.end_position,
-                            start_time: base.end_time,
-                            span_index: 0,
-                            span_start_time: 0.0,
-                            slider_object_type: SliderObjectType::SliderEnd,
                         });
 
                         // create slider ticks
@@ -664,19 +668,24 @@ impl BeatmapFile {
                                     // calculate tick position
                                     let distance =
                                         f32::min(f32::max(progress, 0.0), 1.0) * expected_distance;
-                                    let mut index =
-                                        cloned_len.iter().position(|&f| f == distance).unwrap_or(usize::MAX);
+                                    let mut index = cloned_len
+                                        .iter()
+                                        .position(|&f| f == distance)
+                                        .unwrap_or(usize::MAX);
+                                    let mut returned = false;
                                     if index == usize::MAX {
                                         for i in 0..cloned_len.len() {
                                             if cloned_len[i] > distance {
                                                 index = i;
+                                                returned = true;
                                                 break;
                                             }
                                         }
 
-                                        index = cloned_len.len() - 1;
+                                        if returned == false {
+                                            index = cloned_len.len() - 1;
+                                        }
                                     }
-
                                     // interpolate slider vertices
                                     let mut vertice = Vector2::new(0.0, 0.0);
 
@@ -696,11 +705,11 @@ impl BeatmapFile {
                                         {
                                             vertice = start
                                         } else {
-                                            let scale = (distance - distance_start) / (distance_end - distance_start);
+                                            let scale = (distance - distance_start)
+                                                / (distance_end - distance_start);
                                             vertice = start + ((end - start).scale(scale));
                                         }
                                     }
-                                    dbg!("{}", vertice);
                                     let tick_position = base.position + vertice;
 
                                     hitobjects.push(SliderObject {
@@ -709,6 +718,7 @@ impl BeatmapFile {
                                         position: tick_position,
                                         start_time: span_start + time_progress * span_duration,
                                         span_index: span,
+                                        repeat_index: 0,
                                         span_start_time: span_start,
                                         slider_object_type: SliderObjectType::SliderTick,
                                     });
@@ -717,6 +727,85 @@ impl BeatmapFile {
                                 }
                             }
                         }
+
+                        // parse repeat points
+                        let mut repeat = 1.0;
+                        let mut repeat_index = 0;
+                        while repeat_index < repeat_count {
+                            let distance =
+                                f32::min(f32::max(repeat % 2.0, 0.0), 1.0) * expected_distance;
+                            let mut index = cloned_len
+                                .iter()
+                                .position(|&f| f == distance)
+                                .unwrap_or(usize::MAX);
+                            let mut returned = false;
+                            if index == usize::MAX {
+                                for i in 0..cloned_len.len() {
+                                    if cloned_len[i] > distance {
+                                        index = i;
+                                        returned = true;
+                                        break;
+                                    }
+                                }
+
+                                if returned == false {
+                                    index = cloned_len.len() - 1;
+                                }
+                            }
+                            // interpolate slider vertices
+                            let mut vertice = Vector2::new(0.0, 0.0);
+
+                            if index <= 0 {
+                                vertice = cloned_body[0];
+                            } else if index >= cloned_body.len() {
+                                vertice = cloned_body[cloned_body.len() - 1];
+                            } else {
+                                let start = cloned_body[index - 1];
+                                let end = cloned_body[index];
+
+                                let distance_start = cloned_len[index - 1];
+                                let distance_end = cloned_len[index];
+
+                                if f32::abs(distance_start - distance_end)
+                                    <= constants::PRECISION_LENIENCE
+                                {
+                                    vertice = start
+                                } else {
+                                    let scale = (distance - distance_start)
+                                        / (distance_end - distance_start);
+                                    vertice = start + ((end - start).scale(scale));
+                                }
+                            }
+                            
+                            let repeat_position = base.position + vertice;
+                            let span_duration = duration / span_count as f32;
+
+                            hitobjects.push(SliderObject {
+                                x: repeat_position.x,
+                                y: repeat_position.y,
+                                position: repeat_position,
+                                start_time: base.start_time + (repeat * span_duration),
+                                span_index: 0,
+                                repeat_index: repeat_index,
+                                span_start_time: span_duration,
+                                slider_object_type: SliderObjectType::SliderTick,
+                            });
+
+                            repeat_index += 1;
+                            repeat += 1.0;
+                        }
+
+                        // add sliderend
+                        hitobjects.push(SliderObject {
+                            x: base.end_position.x,
+                            y: base.end_position.y,
+                            position: base.end_position,
+                            start_time: f32::max(base.start_time + duration / 2.0, base.end_time - constants::LEGACY_TICK_OFFSET),
+                            span_index: 0,
+                            repeat_index: 0,
+                            span_start_time: 0.0,
+                            slider_object_type: SliderObjectType::SliderEnd,
+                        });
 
                         hitobjects.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
                         base.slider_objects = Some(hitobjects);
@@ -751,6 +840,162 @@ impl BeatmapFile {
             }
         }
 
+        // apply stacking
+        let stack_distance = 3.0;
+        let mut time_preempt = 600.0;
+        let end_index = beatmap.hit_objects.len() - 1;
+
+        if beatmap.difficulty.approach_rate > 5.0 {
+            time_preempt = 1200.0 + (450.0 - 1200.0) * (beatmap.difficulty.approach_rate - 5.0) / 5.0;
+        } else if beatmap.difficulty.approach_rate < 5.0 {
+            time_preempt = 1200.0 + (1200.0 - 1800.0) * (5.0 - beatmap.difficulty.approach_rate) / 5.0;
+        } else {
+            time_preempt = 1200.0;
+        }
+
+        let mut extended_end = beatmap.hit_objects.len() - 1;
+
+        if end_index < beatmap.hit_objects.len() - 1 {
+            let mut i = end_index;
+            while i >= 0 {
+                let stack_base = i;
+
+                let mut j = stack_base + 1;
+                while j < beatmap.hit_objects.len() {
+                    let stack_base_object = &beatmap.hit_objects[stack_base];
+
+                    if stack_base_object.hit_type as i32 == HitType::Spinner as i32 {
+                        break;
+                    }
+
+                    let stack_j = &beatmap.hit_objects[j];
+
+                    if stack_j.hit_type as i32 == HitType::Spinner as i32 {
+                        break;
+                    }
+
+                    let end_time = if stack_base_object.hit_type as i32 == HitType::Slider as i32 {
+                        stack_base_object.end_time
+                    } else {
+                        stack_base_object.start_time
+                    };
+                    let stack_threshold = time_preempt * beatmap.stack_leniency;
+
+                    if stack_j.start_time - end_time > stack_threshold {
+                        break;
+                    }
+
+                    let endpos_distance_check = if stack_base_object.hit_type as i32 == HitType::Slider as i32 {
+                        stack_base_object.end_position.distance(stack_j.position) < stack_distance
+                    } else {
+                        false
+                    };
+
+                    if stack_base_object.position.distance(stack_j.position) < stack_distance || endpos_distance_check {
+                        beatmap.hit_objects[j].stack_height = 0;
+                    }
+                    
+                    j += 1;
+                }
+
+                if stack_base > extended_end {
+                    extended_end = stack_base;
+
+                    if extended_end == beatmap.hit_objects.len() - 1 {
+                        break;
+                    }
+                }
+
+                i -= 1;
+            }
+        }
+
+        let mut extended_start = 0;
+        let mut i2 = extended_end;
+        while i2 > 0 {
+            let mut n = i2;
+
+            if beatmap.hit_objects[i2].stack_height != 0 || beatmap.hit_objects[i2].hit_type as i32 == HitType::Slider as i32 {
+                i2 -= 1;
+                continue;
+            }
+
+            let stack_threshold = time_preempt * beatmap.stack_leniency;
+
+            if beatmap.hit_objects[i2].hit_type as i32 == HitType::Normal as i32 {
+                while n >= 0 {
+                    n -= 1;
+
+                    if beatmap.hit_objects[n].hit_type as i32 == HitType::Spinner as i32 {
+                        continue;
+                    }
+
+                    let end_time = if beatmap.hit_objects[n].hit_type as i32 == HitType::Normal as i32 {
+                        beatmap.hit_objects[n].start_time
+                    } else {
+                        beatmap.hit_objects[n].end_time
+                    };
+
+                    if &beatmap.hit_objects[i2].start_time - end_time > stack_threshold {
+                        break;
+                    }
+                    
+                    if n < extended_start {
+                        beatmap.hit_objects[n].stack_height = 0;
+                        extended_start = n;
+                    }
+
+                    let endpos_distance_check = if beatmap.hit_objects[n].hit_type as i32 == HitType::Slider as i32 {
+                        beatmap.hit_objects[n].end_position.distance(beatmap.hit_objects[i2].position) < stack_distance
+                    } else {
+                        false
+                    };
+                    if endpos_distance_check {
+                        let offset = beatmap.hit_objects[i2].stack_height - beatmap.hit_objects[n].stack_height + 1;
+                        let mut j = n + 1;
+                        while j <= i2 + 1 {
+                            let stack_j = &beatmap.hit_objects[j];
+                            if beatmap.hit_objects[n].end_position.distance(stack_j.position) < stack_distance {
+                                beatmap.hit_objects[j].stack_height -= offset;
+                            }
+                        }
+
+                        break;
+                    }
+
+                    if beatmap.hit_objects[n].position.distance(beatmap.hit_objects[i2].position) < stack_distance {
+                        beatmap.hit_objects[n].stack_height = beatmap.hit_objects[i2].stack_height + 1;
+                    }
+                }
+            } else if beatmap.hit_objects[i2].hit_type as i32 == HitType::Slider as i32 {
+                while n >= 0 {
+                    n -= 1;
+
+                    let stack_n = &beatmap.hit_objects[n];
+
+                    if stack_n.hit_type as i32 == HitType::Spinner as i32 {
+                        continue;
+                    }
+
+                    if &beatmap.hit_objects[i2].start_time - stack_n.start_time > stack_threshold {
+                        break;
+                    }
+
+                    let stack_n_endpos = if stack_n.hit_type as i32 == HitType::Normal as i32 {
+                        stack_n.position
+                    } else {
+                        stack_n.end_position
+                    };
+
+                    if stack_n_endpos.distance(beatmap.hit_objects[i2].position) < stack_distance {
+                        beatmap.hit_objects[n].stack_height = beatmap.hit_objects[i2].stack_height + 1;
+                    }
+                }
+            }
+
+            i2 -= 1;
+        }
+
         beatmap // return beatmap
     }
 
@@ -763,9 +1008,6 @@ impl BeatmapFile {
         let mut current_point = &timing_points[0];
 
         for timing_point in &timing_points {
-            dbg!("{}", current_index);
-            dbg!("{}", &timing_point.time);
-            dbg!("{}", &time);
             if timing_point.time > time {
                 if current_index == 0 {
                     break;
@@ -795,9 +1037,6 @@ impl BeatmapFile {
         let mut current_point = &timing_points[0];
 
         for timing_point in &timing_points {
-            dbg!("{}", current_index);
-            dbg!("{}", &timing_point.time);
-            dbg!("{}", &time);
             if timing_point.time > time {
                 if current_index == 0 {
                     break;
@@ -827,9 +1066,6 @@ impl BeatmapFile {
         let mut current_point = &timing_points[0];
 
         for timing_point in &timing_points {
-            dbg!("{}", current_index);
-            dbg!("{}", &timing_point.time);
-            dbg!("{}", &time);
             if timing_point.time > time {
                 if current_index == 0 {
                     break;
@@ -888,7 +1124,6 @@ impl BeatmapFile {
         // copy the base slider points to avoid overriding original ones
         to_flatten.push(deep_copy);
 
-        dbg!(sub_points.len());
         while to_flatten.len() > 0 {
             let mut parent = to_flatten.pop().unwrap();
             let mut flat_enough = true;
@@ -1059,8 +1294,50 @@ impl BeatmapFile {
         approximated_path
     }
 
-    pub fn approximate_catmull(_sub_points: &Vec<Vector2>) -> Vec<Vector2> {
-        let approximated_path = vec![];
+    pub fn approximate_catmull(sub_points: &Vec<Vector2>) -> Vec<Vector2> {
+        let mut approximated_path = vec![];
+
+        for i in 0..(sub_points.len() - 1) {
+            let vec1 = if i > 0 {
+                sub_points[i - 1]
+            } else {
+                sub_points[i]
+            };
+            let vec2 = sub_points[i];
+            let vec3 = if i < (sub_points.len() - 1) {
+                sub_points[i + 1]
+            } else {
+                vec2 + vec2 - vec1
+            };
+            let vec4 = if i < (sub_points.len() - 2) {
+                sub_points[i + 2]
+            } else {
+                vec3 + vec3 - vec2
+            };
+
+            for c in 0..constants::CATMULL_DETAIL {
+                let t = c as f32 / constants::CATMULL_DETAIL as f32;
+                let t2 = t * t;
+                let t3 = t * t2;
+
+                let t_b = (c + 1) as f32 / constants::CATMULL_DETAIL as f32;
+                let t2_b = t_b * t_b;
+                let t3_b = t_b * t2_b;
+
+                let p1 = Vector2::new(
+                    0.5 * (2.0 * vec2.x + (-vec1.x + vec3.x) * t + (2.0 * vec1.x - 5.0 * vec2.x + 4.0 * vec3.x - vec4.x) * t2 + (-vec1.x + 3.0 * vec2.x - 3.0 * vec3.x + vec4.x) * t3),
+                    0.5 * (2.0 * vec2.y + (-vec1.y + vec3.y) * t + (2.0 * vec1.y - 5.0 * vec2.y + 4.0 * vec3.y - vec4.y) * t2 + (-vec1.y + 3.0 * vec2.y - 3.0 * vec3.y + vec4.y) * t3)
+                );
+
+                let p2 = Vector2::new(
+                    0.5 * (2.0 * vec2.x + (-vec1.x + vec3.x) * t_b + (2.0 * vec1.x - 5.0 * vec2.x + 4.0 * vec3.x - vec4.x) * t2_b + (-vec1.x + 3.0 * vec2.x - 3.0 * vec3.x + vec4.x) * t3_b),
+                    0.5 * (2.0 * vec2.y + (-vec1.y + vec3.y) * t_b + (2.0 * vec1.y - 5.0 * vec2.y + 4.0 * vec3.y - vec4.y) * t2_b + (-vec1.y + 3.0 * vec2.y - 3.0 * vec3.y + vec4.y) * t3_b)
+                );
+
+                approximated_path.push(p1);
+                approximated_path.push(p2);
+            }
+        }
 
         approximated_path
     }

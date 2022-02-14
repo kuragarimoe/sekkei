@@ -1,2 +1,4 @@
 pub const PRECISION_LENIENCE: f32 = 0.001;
 pub const BEZIER_TOLERANCE: f32 = 0.25;
+pub const CATMULL_DETAIL: i32 = 50;
+pub const LEGACY_TICK_OFFSET: f32 = 36.0;

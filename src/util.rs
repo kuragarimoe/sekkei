@@ -41,6 +41,12 @@ impl Vector2 {
     pub fn len(&self) -> f32 {
         ((self.x * self.x) + (self.y * self.y)).sqrt()
     }
+
+    pub fn distance(&self, other: Vector2) -> f32 {
+        let x = self.x - other.x;
+        let y = self.y - other.y;
+        ((x * x) + (y * y)).sqrt()
+    }
 }
 
 impl Copy for Vector2 {}
