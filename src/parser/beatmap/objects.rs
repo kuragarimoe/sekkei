@@ -9,12 +9,15 @@ use crate::util::Vector2;
 pub struct HitObject {
     pub x: f32,
     pub y: f32,
-    pub start_time: i32,
-    pub end_time: i32,
+    pub position: Vector2,
+    pub end_position: Vector2,
+    pub start_time: f32,
+    pub end_time: f32,
     pub hit_sound: i32,
     pub hit_type: i32,
     pub slider_data: Option<SliderData>,
-    pub extra_data: Option<HitObjectExtra>,
+    pub slider_objects: Option<Vec<SliderObject>>,
+    pub extra_data: Option<HitObjectExtra>
 }
 
 impl Clone for HitObject {
@@ -22,11 +25,14 @@ impl Clone for HitObject {
         HitObject {
             x: self.x,
             y: self.y,
+            position: self.position,
+            end_position: self.end_position,
             start_time: self.start_time,
             end_time: self.end_time,
             hit_sound: self.hit_sound,
             hit_type: self.hit_type,
             slider_data: self.slider_data.clone(),
+            slider_objects: self.slider_objects.clone(),
             extra_data: self.extra_data.clone(),
         }
     }
@@ -199,6 +205,8 @@ pub struct TimingPoint {
     pub point_type: TimingPointType
 }
 
+impl Copy for TimingPoint {}
+
 impl Clone for TimingPoint {
     fn clone(&self) -> Self {
         TimingPoint {
@@ -232,6 +240,8 @@ pub struct UninheritedTimingPoint {
     pub time_signature: i32
 }
 
+impl Copy for UninheritedTimingPoint {}
+
 impl Clone for UninheritedTimingPoint {
     fn clone(&self) -> Self {
         UninheritedTimingPoint {
@@ -248,6 +258,8 @@ pub struct InheritedTimingPoint {
     pub speed_multiplier: f32,
     pub inherited_from: UninheritedTimingPoint
 }
+
+impl Copy for InheritedTimingPoint {}
 
 impl Clone for InheritedTimingPoint {
     fn clone(&self) -> Self {
@@ -290,5 +302,39 @@ impl Clone for SliderBody {
             body: self.body.clone(),
             length: self.length.clone(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct SliderObject {
+    pub x: f32,
+    pub y: f32,
+    pub position: Vector2,
+    pub start_time: f32,
+    pub span_index: i32,
+    pub span_start_time: f32,
+    pub slider_object_type: SliderObjectType
+}
+
+impl Copy for SliderObject {}
+
+impl Clone for SliderObject {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+#[derive(Debug)]
+pub enum SliderObjectType {
+    SliderHead,
+    SliderTick,
+    SliderEnd
+}
+
+impl Copy for SliderObjectType {}
+
+impl Clone for SliderObjectType {
+    fn clone(&self) -> Self {
+        *self
     }
 }

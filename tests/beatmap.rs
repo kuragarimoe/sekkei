@@ -16,6 +16,8 @@ mod tests {
         println!("{}", bm.artist);
         println!("{}", bm.difficulty.circle_size);
 
+        println!("{}", bm.hit_objects.len());
+
         // print bm to file
         std::fs::write("./test.osu_dec", format!("{:#?}", bm));
     }
