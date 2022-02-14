@@ -7,16 +7,17 @@ async fn criterion_benchmark(c: &mut Criterion) {
     // preconfigure
     let mut b = c.benchmark_group("sekkai-parser");
     let path = env::current_dir().unwrap().to_str().unwrap().to_string()
-        + "/tests/files/IMAGINARY LIKE THE JUSTICE.osu";
+        + "/tests/files/kakushigoto.osu";
 
     b.warm_up_time(Duration::new(10, 0));
     b.throughput(Throughput::Bytes(fs::metadata(path).unwrap().len() as u64));
+    b.measurement_time(Duration::new(10, 0));
 
     // run benches
     b.bench_function("test unpack", |b| {
         b.iter(|| {
             let path2 = env::current_dir().unwrap().to_str().unwrap().to_string()
-                + "/tests/files/IMAGINARY LIKE THE JUSTICE.osu";
+                + "/tests/files/kakushigoto.osu";
             let bm = BeatmapFile::from_file(&path2); // unwrap
         })
     });
